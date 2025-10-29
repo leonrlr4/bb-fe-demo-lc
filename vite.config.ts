@@ -4,7 +4,7 @@
   import path from 'path';
 
   export default defineConfig({
-    base: '/bb-fe-demo/',
+    base: '/bb-fe-demo-lc/',
     plugins: [react()],
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
