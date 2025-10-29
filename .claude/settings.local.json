@@ -6,7 +6,9 @@
       "Bash(git push:*)",
       "Bash(gh api:*)",
       "Bash(curl:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebFetch(domain:leonrlr4.github.io)",
+      "Bash(VITE_API_BASE_URL=https://api.biobuild.bio npm run build:*)"
     ],
     "deny": [],
     "ask": []
