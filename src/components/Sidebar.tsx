@@ -170,6 +170,7 @@ export function Sidebar({
     if (e.target.files) {
       const files = Array.from(e.target.files);
       handleFiles(files);
+      e.target.value = ''; // reset to allow re-upload
     }
   };
 
