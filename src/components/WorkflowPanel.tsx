@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Clock, CheckCircle2, Code2, Upload, X } from 'lucide-react';
+import { Clock, CheckCircle2, Code2 } from 'lucide-react';
 import { Conversation } from '../services';
 import { chatService } from '../services';
 import { toast } from 'sonner';
@@ -18,6 +18,9 @@ interface WorkflowPanelProps {
   workflows: any[];
   allConversations: ConversationWithMessageCount[];
   onConversationSelect?: (conversationId: string) => void;
+  selectedTemplate?: string;
+  uploadedFiles?: File[];
+  onClearFiles?: () => void;
 }
 
 // Template definitions
@@ -28,11 +31,17 @@ const TEMPLATES = [
   { value: 'reverse-complement', label: 'Reverse Complement', prompt: 'Write Python code to reverse-complement all sequences in this FASTA file and save them to a new FASTA file' }
 ];
 
-export function WorkflowPanel({ className, onGenerateWorkflow, workflows, allConversations, onConversationSelect }: WorkflowPanelProps) {
+export function WorkflowPanel({
+  className,
+  onGenerateWorkflow,
+  workflows,
+  allConversations,
+  onConversationSelect,
+  selectedTemplate = 'none',
+  uploadedFiles = [],
+  onClearFiles
+}: WorkflowPanelProps) {
   const [query, setQuery] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('none');
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Filter conversations with exactly 2 messages (1 user + 1 assistant)
@@ -40,71 +49,15 @@ export function WorkflowPanel({ className, onGenerateWorkflow, workflows, allCon
     return allConversations.filter(conv => conv.messageCount === 2);
   }, [allConversations]);
 
-  // Handle template change - update query with template prompt
-  const handleTemplateChange = (value: string) => {
-    setSelectedTemplate(value);
-    const template = TEMPLATES.find(t => t.value === value);
+  // Update query when template changes
+  useEffect(() => {
+    const template = TEMPLATES.find(t => t.value === selectedTemplate);
     if (template && template.prompt) {
       setQuery(template.prompt);
-    } else if (value === 'none') {
+    } else if (selectedTemplate === 'none') {
       setQuery('');
     }
-  };
-
-  // File upload handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  }, []);
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      handleFiles(files);
-    }
-  };
-
-  const handleFiles = (files: File[]) => {
-    const validExtensions = ['.csv', '.tsv', '.fasta', '.fa', '.fna'];
-    const maxSize = 200 * 1024 * 1024; // 200MB
-
-    const validFiles: File[] = [];
-
-    files.forEach(file => {
-      const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-
-      if (!validExtensions.includes(fileExt)) {
-        toast.error(`Invalid file type: ${file.name}. Only CSV, TSV, FASTA files are allowed.`);
-        return;
-      }
-
-      if (file.size > maxSize) {
-        toast.error(`File too large: ${file.name}. Maximum size is 200MB.`);
-        return;
-      }
-
-      validFiles.push(file);
-      toast.success(`File added: ${file.name}`);
-    });
-
-    setUploadedFiles(prev => [...prev, ...validFiles]);
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
+  }, [selectedTemplate]);
 
   const handleGenerate = async () => {
     if (!query.trim()) {
@@ -132,8 +85,9 @@ export function WorkflowPanel({ className, onGenerateWorkflow, workflows, allCon
 
       // Clear form
       setQuery('');
-      setSelectedTemplate('none');
-      setUploadedFiles([]);
+      if (onClearFiles) {
+        onClearFiles();
+      }
 
       toast.success('Workflow generated successfully');
     } catch (error: any) {
@@ -157,77 +111,19 @@ export function WorkflowPanel({ className, onGenerateWorkflow, workflows, allCon
           <div>
             <h2 className="text-slate-200 mb-4">Natural Language Query</h2>
             <div className="space-y-4">
-              {/* Quick Templates */}
-              <div>
-                <div className="text-sm text-slate-400 mb-2">Quick Templates:</div>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {TEMPLATES.map(template => (
-                    <option key={template.value} value={template.value}>
-                      {template.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <div className="text-sm text-slate-400 mb-2">Upload FASTA files (optional):</div>
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                    isDragging
-                      ? 'border-purple-500 bg-purple-500/10'
-                      : 'border-slate-700 bg-slate-800/50'
-                  }`}
-                >
-                  <Upload className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-                  <p className="text-xs text-slate-400 mb-1">Drag and drop files here</p>
-                  <p className="text-xs text-slate-500">or</p>
-                  <input
-                    type="file"
-                    id="workflow-file-upload"
-                    className="hidden"
-                    multiple
-                    accept=".csv,.tsv,.fasta,.fa,.fna"
-                    onChange={handleFileInput}
-                  />
-                  <label htmlFor="workflow-file-upload">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-300"
-                    >
-                      <span className="cursor-pointer">Browse files</span>
-                    </Button>
-                  </label>
-                </div>
-
-                {/* Uploaded Files List */}
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-2 space-y-1">
+              {/* Info about uploaded files */}
+              {uploadedFiles.length > 0 && (
+                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                  <div className="text-xs text-slate-400 mb-2">Uploaded files ({uploadedFiles.length}):</div>
+                  <div className="space-y-1">
                     {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-slate-800 rounded px-3 py-2">
-                        <span className="text-xs text-slate-300 truncate">{file.name}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeFile(index)}
-                          className="h-6 w-6 p-0 hover:bg-slate-700"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
+                      <div key={index} className="text-xs text-slate-300">
+                        • {file.name}
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Query Input */}
               <div>
@@ -236,7 +132,7 @@ export function WorkflowPanel({ className, onGenerateWorkflow, workflows, allCon
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="e.g., 'Find differentially expressed genes between treated and control samples' or 'Perform quality control analysis on my RNA-seq data'"
-                  className="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500 min-h-[120px]"
+                  className="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500 min-h-[200px]"
                 />
               </div>
 

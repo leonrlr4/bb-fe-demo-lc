@@ -16,12 +16,25 @@ interface ConversationWithMessageCount extends Conversation {
   messageCount?: number;
 }
 
+// Template definitions
+const TEMPLATES = [
+  { value: 'none', label: 'None', prompt: '' },
+  { value: 'count-gc', label: 'Count GC reads', prompt: 'Write Python code to count the total number of GC reads in this FASTA file' },
+  { value: 'longest-sequence', label: 'Longest Sequence', prompt: 'Write Python code to print the ID and length of the longest sequence in this FASTA file' },
+  { value: 'reverse-complement', label: 'Reverse Complement', prompt: 'Write Python code to reverse-complement all sequences in this FASTA file and save them to a new FASTA file' }
+];
+
 function AppContent() {
   const { user, isAuthenticated, logout } = useAuth();
   const [activeView, setActiveView] = useState<'chat' | 'workflow'>('workflow');
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [totalExecutions, setTotalExecutions] = useState(0);
   const [allConversations, setAllConversations] = useState<ConversationWithMessageCount[]>([]);
+
+  // Sidebar state for workflow
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('none');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -35,6 +48,15 @@ function AppContent() {
   const [showCode, setShowCode] = useState(false);
   const [showExecution, setShowExecution] = useState(false);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
+
+  const handleTemplateChange = (template: string) => {
+    setSelectedTemplate(template);
+    // Template will be used in WorkflowPanel to populate query
+  };
+
+  const handleFilesChange = (files: File[]) => {
+    setUploadedFiles(files);
+  };
 
   const handleGenerateWorkflow = (query: string) => {
     const newWorkflow = {
@@ -196,6 +218,10 @@ function AppContent() {
         onConversationSelect={handleConversationSelect}
         currentConversationId={currentConversationId}
         activeView={activeView}
+        selectedTemplate={selectedTemplate}
+        onTemplateChange={handleTemplateChange}
+        uploadedFiles={uploadedFiles}
+        onFilesChange={handleFilesChange}
       />
 
       <div className="flex-1 flex flex-col">
@@ -264,6 +290,9 @@ function AppContent() {
                 workflows={workflows}
                 allConversations={allConversations}
                 onConversationSelect={(id) => handleConversationSelect(id, false)}
+                selectedTemplate={selectedTemplate}
+                uploadedFiles={uploadedFiles}
+                onClearFiles={() => setUploadedFiles([])}
               />
               {/* Code Viewer for Workflow */}
               <div className="w-[40%] min-w-0 border-l border-slate-800 bg-slate-950 flex flex-col">

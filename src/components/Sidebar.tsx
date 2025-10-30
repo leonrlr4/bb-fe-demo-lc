@@ -11,10 +11,23 @@ interface SidebarProps {
   onConversationSelect?: (conversationId: string) => void;
   currentConversationId?: string;
   activeView?: 'chat' | 'workflow';
+  selectedTemplate?: string;
+  onTemplateChange?: (template: string) => void;
+  uploadedFiles?: File[];
+  onFilesChange?: (files: File[]) => void;
 }
 
-export function Sidebar({ workflows, totalExecutions, onConversationSelect, currentConversationId, activeView }: SidebarProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('none');
+export function Sidebar({
+  workflows,
+  totalExecutions,
+  onConversationSelect,
+  currentConversationId,
+  activeView,
+  selectedTemplate = 'none',
+  onTemplateChange,
+  uploadedFiles = [],
+  onFilesChange
+}: SidebarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
@@ -71,6 +84,8 @@ export function Sidebar({ workflows, totalExecutions, onConversationSelect, curr
     const validExtensions = ['.csv', '.tsv', '.fasta', '.fa', '.fna'];
     const maxSize = 200 * 1024 * 1024; // 200MB
 
+    const validFiles: File[] = [];
+
     files.forEach(file => {
       const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
 
@@ -84,9 +99,13 @@ export function Sidebar({ workflows, totalExecutions, onConversationSelect, curr
         return;
       }
 
-      toast.success(`File uploaded: ${file.name}`);
-      // TODO: upload logic
+      validFiles.push(file);
+      toast.success(`File added: ${file.name}`);
     });
+
+    if (validFiles.length > 0 && onFilesChange) {
+      onFilesChange([...uploadedFiles, ...validFiles]);
+    }
   };
 
   return (
@@ -153,13 +172,13 @@ export function Sidebar({ workflows, totalExecutions, onConversationSelect, curr
 
           <select
             value={selectedTemplate}
-            onChange={(e) => setSelectedTemplate(e.target.value)}
+            onChange={(e) => onTemplateChange?.(e.target.value)}
             className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="none">None</option>
-            <option value="count-gc">Count GC reads: Write Python code to count the total number of GC reads in this FASTA file</option>
-            <option value="longest-sequence">Longest Sequence: Write Python code to print the ID and length of the longest sequence in this FASTA file</option>
-            <option value="reverse-complement">Reverse Complement: Write Python code to reverse-complement all sequences in this FASTA file and save them to a new FASTA file</option>
+            <option value="count-gc">Count GC reads</option>
+            <option value="longest-sequence">Longest Sequence</option>
+            <option value="reverse-complement">Reverse Complement</option>
           </select>
         </div>
       )}
