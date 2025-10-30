@@ -3,4 +3,4 @@ export { authService } from './auth';
 export { chatService } from './chat';
 export { conversationsService } from './conversations';
 
-export type { Message } from '../types';
+export type { Message, Conversation } from '../types';

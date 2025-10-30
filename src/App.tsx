@@ -2,22 +2,26 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
-import { QuickActions } from './components/QuickActions';
 import { AuthDialog } from './components/AuthDialog';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Code2, MessageSquare, Workflow, LogOut, User, CheckCircle, XCircle } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
-import { conversationsService, Message as ApiMessage } from './services';
+import { conversationsService, Message as ApiMessage, Conversation } from './services';
 import { toast } from 'sonner';
 import { ExecutionInfo } from './types';
 
+interface ConversationWithMessageCount extends Conversation {
+  messageCount?: number;
+}
+
 function AppContent() {
   const { user, isAuthenticated, logout } = useAuth();
-  const [activeView, setActiveView] = useState<'chat' | 'workflow'>('chat');
+  const [activeView, setActiveView] = useState<'chat' | 'workflow'>('workflow');
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [totalExecutions, setTotalExecutions] = useState(0);
+  const [allConversations, setAllConversations] = useState<ConversationWithMessageCount[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -58,7 +62,7 @@ function AppContent() {
     setShowExecution(false);
   };
 
-  const handleConversationSelect = async (conversationId: string) => {
+  const handleConversationSelect = async (conversationId: string, switchToChat: boolean = true) => {
     try {
       const response = await conversationsService.getConversationDetail(conversationId);
       setCurrentConversationId(conversationId);
@@ -72,7 +76,9 @@ function AppContent() {
       }));
 
       setChatMessages(formattedMessages);
-      setActiveView('chat');
+      if (switchToChat) {
+        setActiveView('chat');
+      }
 
       const latestWithCodeIndex = [...formattedMessages].reverse().findIndex((msg) => msg.code);
       if (latestWithCodeIndex !== -1) {
@@ -119,8 +125,53 @@ function AppContent() {
       setSelectedMessageIndex(null);
       setShowCode(false);
       setShowExecution(false);
+      setAllConversations([]);
     }
   }, [isAuthenticated]);
+
+  // Load conversations with message counts when switching to workflow view
+  useEffect(() => {
+    if (isAuthenticated && activeView === 'workflow' && allConversations.length === 0) {
+      loadAllConversations();
+    }
+  }, [isAuthenticated, activeView]);
+
+  const loadAllConversations = async () => {
+    try {
+      const response = await conversationsService.getConversations();
+
+      // Load details and find first 3 conversations with exactly 2 messages
+      const workflowConversations: ConversationWithMessageCount[] = [];
+
+      for (const conv of response.conversations) {
+        // Stop when we have found 3 workflow conversations
+        if (workflowConversations.length >= 3) {
+          break;
+        }
+
+        try {
+          const detail = await conversationsService.getConversationDetail(conv.id);
+          const messageCount = detail.messages.length;
+
+          // Only keep conversations with exactly 2 messages
+          if (messageCount === 2) {
+            workflowConversations.push({
+              ...conv,
+              messageCount
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to load details for conversation ${conv.id}:`, error);
+        }
+      }
+
+      setAllConversations(workflowConversations);
+    } catch (error: any) {
+      if (!error.message?.includes('401')) {
+        console.error('Failed to load conversations:', error);
+      }
+    }
+  };
 
   // Auto-select latest message with code when messages change
   useEffect(() => {
@@ -144,6 +195,7 @@ function AppContent() {
         totalExecutions={totalExecutions}
         onConversationSelect={handleConversationSelect}
         currentConversationId={currentConversationId}
+        activeView={activeView}
       />
 
       <div className="flex-1 flex flex-col">
@@ -205,7 +257,125 @@ function AppContent() {
         {/* Main Content */}
         <div className="flex-1 overflow-hidden">
           {activeView === 'workflow' ? (
-            <WorkflowPanel onGenerateWorkflow={handleGenerateWorkflow} workflows={workflows} />
+            <div className="h-full flex overflow-hidden">
+              <WorkflowPanel
+                className="flex-[0_0_60%] max-w-[60%]"
+                onGenerateWorkflow={handleGenerateWorkflow}
+                workflows={workflows}
+                allConversations={allConversations}
+                onConversationSelect={(id) => handleConversationSelect(id, false)}
+              />
+              {/* Code Viewer for Workflow */}
+              <div className="w-[40%] min-w-0 border-l border-slate-800 bg-slate-950 flex flex-col">
+                <div className="border-b border-slate-800 px-6 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Code2 className="w-4 h-4 text-slate-400" />
+                      <span className="text-slate-300">Code Viewer</span>
+                    </div>
+                    {selectedMessageIndex !== null && (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 border-l border-slate-700 pl-3">
+                        <span>Viewing Workflow Result</span>
+                      </div>
+                    )}
+                  </div>
+                  {codeResult && (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowCode(!showCode)}
+                        className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
+                      >
+                        {showCode ? 'Hide Code' : 'Review Code'}
+                      </Button>
+                      {codeResult.execution && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowExecution(!showExecution)}
+                          className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
+                        >
+                          {showExecution ? 'Hide Execution' : 'Execute'}
+                        </Button>
+                      )}
+                      <div className="flex items-center gap-2 text-xs">
+                        {codeResult.execution?.success ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 text-green-500" />
+                            <span className="text-green-500">Execution successful</span>
+                          </>
+                        ) : codeResult.execution ? (
+                          <>
+                            <XCircle className="w-3 h-3 text-red-500" />
+                            <span className="text-red-500">Execution failed</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {codeResult ? (
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {showCode ? (
+                      <div>
+                        <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
+                          Generated Code
+                        </h4>
+                        <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre-wrap break-all overflow-auto">
+                          <code>{codeResult.code}</code>
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
+                        Click "Review Code" to view the generated code
+                      </div>
+                    )}
+
+                    {showExecution && codeResult.execution && (
+                      <>
+                        {codeResult.execution.stdout && (
+                          <div className="mt-4">
+                            <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
+                              Execution Output
+                            </h4>
+                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre-wrap break-all overflow-auto">
+                              <code>{codeResult.execution.stdout}</code>
+                            </pre>
+                          </div>
+                        )}
+                        {codeResult.execution.error && (
+                          <div className="mt-4">
+                            <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
+                              Execution Error
+                            </h4>
+                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre-wrap break-all overflow-auto">
+                              <code>{codeResult.execution.error}</code>
+                            </pre>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {!showExecution && codeResult.execution && (
+                      <div className="flex items-center justify-center h-32 mt-4 text-slate-500 text-sm">
+                        Click "Execute" to view the execution results
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-slate-500">
+                    <div className="text-center">
+                      <Code2 className="w-16 h-16 mx-auto mb-4 text-slate-700" />
+                      <h3 className="mb-2">No Code Selected</h3>
+                      <p className="text-sm">
+                        Click on a workflow from history to view its code
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="h-full flex overflow-hidden">
               {isAuthenticated ? (
@@ -350,13 +520,6 @@ function AppContent() {
             </div>
           )}
         </div>
-
-        {/* Quick Actions - shown in workflow view */}
-        {activeView === 'workflow' && (
-          <div className="border-t border-slate-800 bg-slate-900 px-6 py-4">
-            <QuickActions onActionClick={(action) => handleGenerateWorkflow(action)} />
-          </div>
-        )}
       </div>
 
       <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
