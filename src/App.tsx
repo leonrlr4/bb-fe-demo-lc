@@ -328,6 +328,7 @@ function AppContent() {
         uploadedFiles={uploadedFiles}
         onFilesChange={handleFilesChange}
         onReloadConversations={handleReloadConversations}
+        onNewChat={handleNewChat}
       />
 
       <div style={{

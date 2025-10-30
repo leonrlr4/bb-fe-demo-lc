@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Upload, Info, MessageSquare, Clock, RefreshCw } from 'lucide-react';
+import { Upload, Info, MessageSquare, Clock, RefreshCw, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { conversationsService, Conversation } from '../services';
@@ -16,6 +16,7 @@ interface SidebarProps {
   uploadedFiles?: File[];
   onFilesChange?: (files: File[]) => void;
   onReloadConversations?: () => void;
+  onNewChat?: () => void;
 }
 
 export function Sidebar({
@@ -28,7 +29,8 @@ export function Sidebar({
   onTemplateChange,
   uploadedFiles = [],
   onFilesChange,
-  onReloadConversations
+  onReloadConversations,
+  onNewChat
 }: SidebarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -292,20 +294,35 @@ export function Sidebar({
               <h3 className="text-slate-200 text-sm font-medium">Recent Chats</h3>
             </div>
             {isAuthenticated && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  loadConversations({ reset: true });
-                  onReloadConversations?.();
-                }}
-                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
-                title="Reload conversations"
-                type="button"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    onNewChat?.();
+                  }}
+                  className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
+                  title="New chat"
+                  type="button"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    loadConversations({ reset: true });
+                    onReloadConversations?.();
+                  }}
+                  className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
+                  title="Reload conversations"
+                  type="button"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             )}
           </div>
 
