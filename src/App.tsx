@@ -3,8 +3,9 @@ import { Sidebar } from './components/Sidebar';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { AuthDialog } from './components/AuthDialog';
+import { CodeViewer } from './components/CodeViewer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Code2, MessageSquare, Workflow, LogOut, User, CheckCircle, XCircle } from 'lucide-react';
+import { Code2, MessageSquare, Workflow, LogOut, User } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
@@ -45,8 +46,6 @@ function AppContent() {
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [codeResult, setCodeResult] = useState<{ code: string; execution: ExecutionInfo | null } | null>(null);
-  const [showCode, setShowCode] = useState(false);
-  const [showExecution, setShowExecution] = useState(false);
   const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
 
   const handleTemplateChange = (template: string) => {
@@ -80,8 +79,6 @@ function AppContent() {
     setActiveView('chat');
     setCodeResult(null);
     setSelectedMessageIndex(null);
-    setShowCode(false);
-    setShowExecution(false);
   };
 
   const handleConversationSelect = async (conversationId: string, switchToChat: boolean = true) => {
@@ -111,13 +108,9 @@ function AppContent() {
           execution: latestWithCode.execution || null
         });
         setSelectedMessageIndex(actualIndex);
-        setShowCode(true);
-        setShowExecution(false);
       } else {
         setCodeResult(null);
         setSelectedMessageIndex(null);
-        setShowCode(false);
-        setShowExecution(false);
       }
     } catch (error: any) {
       toast.error('Failed to load conversation');
@@ -145,8 +138,6 @@ function AppContent() {
     if (!isAuthenticated) {
       setCodeResult(null);
       setSelectedMessageIndex(null);
-      setShowCode(false);
-      setShowExecution(false);
       setAllConversations([]);
     }
   }, [isAuthenticated]);
@@ -202,8 +193,6 @@ function AppContent() {
       for (let i = chatMessages.length - 1; i >= 0; i--) {
         if (chatMessages[i].code === codeResult.code) {
           setSelectedMessageIndex(i);
-          setShowCode(true);
-          setShowExecution(false);
           break;
         }
       }
@@ -285,7 +274,7 @@ function AppContent() {
           {activeView === 'workflow' ? (
             <div className="h-full flex overflow-hidden">
               <WorkflowPanel
-                className="flex-[0_0_60%] max-w-[60%]"
+                className="flex-1 min-w-0"
                 onGenerateWorkflow={handleGenerateWorkflow}
                 workflows={workflows}
                 allConversations={allConversations}
@@ -294,115 +283,13 @@ function AppContent() {
                 uploadedFiles={uploadedFiles}
                 onClearFiles={() => setUploadedFiles([])}
               />
-              {/* Code Viewer for Workflow */}
-              <div className="w-[40%] min-w-0 border-l border-slate-800 bg-slate-950 flex flex-col">
-                <div className="border-b border-slate-800 px-6 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-slate-400" />
-                      <span className="text-slate-300">Code Viewer</span>
-                    </div>
-                    {selectedMessageIndex !== null && (
-                      <div className="flex items-center gap-2 text-xs text-slate-400 border-l border-slate-700 pl-3">
-                        <span>Viewing Workflow Result</span>
-                      </div>
-                    )}
-                  </div>
-                  {codeResult && (
-                    <div className="flex items-center gap-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowCode(!showCode)}
-                        className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
-                      >
-                        {showCode ? 'Hide Code' : 'Review Code'}
-                      </Button>
-                      {codeResult.execution && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowExecution(!showExecution)}
-                          className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
-                        >
-                          {showExecution ? 'Hide Execution' : 'Execute'}
-                        </Button>
-                      )}
-                      <div className="flex items-center gap-2 text-xs">
-                        {codeResult.execution?.success ? (
-                          <>
-                            <CheckCircle className="w-3 h-3 text-green-500" />
-                            <span className="text-green-500">Execution successful</span>
-                          </>
-                        ) : codeResult.execution ? (
-                          <>
-                            <XCircle className="w-3 h-3 text-red-500" />
-                            <span className="text-red-500">Execution failed</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {codeResult ? (
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
-                    {showCode ? (
-                      <div className="min-w-0">
-                        <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                          Generated Code
-                        </h4>
-                        <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre overflow-x-auto max-w-full">
-                          <code>{codeResult.code}</code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
-                        Click "Review Code" to view the generated code
-                      </div>
-                    )}
-
-                    {showExecution && codeResult.execution && (
-                      <>
-                        {codeResult.execution.stdout && (
-                          <div className="mt-4 min-w-0">
-                            <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                              Execution Output
-                            </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre overflow-x-auto max-w-full">
-                              <code>{codeResult.execution.stdout}</code>
-                            </pre>
-                          </div>
-                        )}
-                        {codeResult.execution.error && (
-                          <div className="mt-4 min-w-0">
-                            <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                              Execution Error
-                            </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre overflow-x-auto max-w-full">
-                              <code>{codeResult.execution.error}</code>
-                            </pre>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {!showExecution && codeResult.execution && (
-                      <div className="flex items-center justify-center h-32 mt-4 text-slate-500 text-sm">
-                        Click "Execute" to view the execution results
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center text-slate-500">
-                    <div className="text-center">
-                      <Code2 className="w-16 h-16 mx-auto mb-4 text-slate-700" />
-                      <h3 className="mb-2">No Code Selected</h3>
-                      <p className="text-sm">
-                        Click on a workflow from history to view its code
-                      </p>
-                    </div>
-                  </div>
-                )}
+              <div className="w-[45%] min-w-0 shrink-0">
+                <CodeViewer
+                  code={codeResult?.code}
+                  execution={codeResult?.execution || null}
+                  messageIndex={selectedMessageIndex}
+                  viewLabel="Workflow Result"
+                />
               </div>
             </div>
           ) : (
@@ -410,7 +297,7 @@ function AppContent() {
               {isAuthenticated ? (
                 <>
                   <ChatPanel
-                    className="flex-[0_0_55%] max-w-[55%] min-w-[420px]"
+                    className="flex-1 min-w-0"
                     messages={chatMessages}
                     setMessages={setChatMessages}
                     conversationId={currentConversationId}
@@ -421,114 +308,13 @@ function AppContent() {
                     onMessageClick={handleMessageClick}
                     selectedMessageIndex={selectedMessageIndex}
                   />
-                  <div className="w-1/2 min-w-0 border-l border-slate-800 bg-slate-950 flex flex-col">
-                    <div className="border-b border-slate-800 px-6 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <Code2 className="w-4 h-4 text-slate-400" />
-                          <span className="text-slate-300">Code Viewer</span>
-                        </div>
-                        {selectedMessageIndex !== null && (
-                          <div className="flex items-center gap-2 text-xs text-slate-400 border-l border-slate-700 pl-3">
-                            <span>Viewing Message #{selectedMessageIndex + 1}</span>
-                          </div>
-                        )}
-                      </div>
-                      {codeResult && (
-                        <div className="flex items-center gap-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowCode(!showCode)}
-                            className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
-                          >
-                            {showCode ? 'Hide Code' : 'Review Code'}
-                          </Button>
-                          {codeResult.execution && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowExecution(!showExecution)}
-                              className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 text-xs"
-                            >
-                              {showExecution ? 'Hide Execution' : 'Execute'}
-                            </Button>
-                          )}
-                          <div className="flex items-center gap-2 text-xs">
-                            {codeResult.execution?.success ? (
-                              <>
-                                <CheckCircle className="w-3 h-3 text-green-500" />
-                                <span className="text-green-500">Execution successful</span>
-                              </>
-                            ) : codeResult.execution ? (
-                              <>
-                                <XCircle className="w-3 h-3 text-red-500" />
-                                <span className="text-red-500">Execution failed</span>
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {codeResult ? (
-                      <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
-                        {showCode ? (
-                          <div className="min-w-0">
-                            <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                              Generated Code
-                            </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre overflow-x-auto max-w-full">
-                              <code>{codeResult.code}</code>
-                            </pre>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
-                            Click "Review Code" to view the generated code
-                          </div>
-                        )}
-
-                        {showExecution && codeResult.execution && (
-                          <>
-                            {codeResult.execution.stdout && (
-                              <div className="mt-4 min-w-0">
-                                <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                                  Execution Output
-                                </h4>
-                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre overflow-x-auto max-w-full">
-                                  <code>{codeResult.execution.stdout}</code>
-                                </pre>
-                              </div>
-                            )}
-                            {codeResult.execution.error && (
-                              <div className="mt-4 min-w-0">
-                                <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
-                                  Execution Error
-                                </h4>
-                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre overflow-x-auto max-w-full">
-                                  <code>{codeResult.execution.error}</code>
-                                </pre>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {!showExecution && codeResult.execution && (
-                          <div className="flex items-center justify-center h-32 mt-4 text-slate-500 text-sm">
-                            Click "Execute" to view the execution results
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex items-center justify-center text-slate-500">
-                        <div className="text-center">
-                          <Code2 className="w-16 h-16 mx-auto mb-4 text-slate-700" />
-                          <h3 className="mb-2">No Code Blocks Yet</h3>
-                          <p className="text-sm">
-                            Ask BioBuild to generate some code to see it here
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                  <div className="w-[45%] min-w-0 shrink-0">
+                    <CodeViewer
+                      code={codeResult?.code}
+                      execution={codeResult?.execution || null}
+                      messageIndex={selectedMessageIndex}
+                      viewLabel="Code Viewer"
+                    />
                   </div>
                 </>
               ) : (
