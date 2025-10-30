@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel, type ChatMessage } from './components/ChatPanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
@@ -13,10 +13,6 @@ import { conversationsService, Message as ApiMessage, Conversation } from './ser
 import { toast } from 'sonner';
 import { ExecutionInfo } from './types';
 
-interface ConversationWithMessageCount extends Conversation {
-  messageCount?: number;
-}
-
 // Template definitions
 const TEMPLATES = [
   { value: 'none', label: 'None', prompt: '' },
@@ -25,12 +21,19 @@ const TEMPLATES = [
   { value: 'reverse-complement', label: 'Reverse Complement', prompt: 'Write Python code to reverse-complement all sequences in this FASTA file and save them to a new FASTA file' }
 ];
 
+const WORKFLOW_HISTORY_PAGE_SIZE = 10;
+
 function AppContent() {
   const { user, isAuthenticated, logout } = useAuth();
   const [activeView, setActiveView] = useState<'chat' | 'workflow'>('workflow');
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [totalExecutions, setTotalExecutions] = useState(0);
-  const [allConversations, setAllConversations] = useState<ConversationWithMessageCount[]>([]);
+  const [allConversations, setAllConversations] = useState<Conversation[]>([]);
+  const [workflowHistoryOffset, setWorkflowHistoryOffset] = useState(0);
+  const [hasMoreWorkflowHistory, setHasMoreWorkflowHistory] = useState(true);
+  const [isLoadingWorkflowHistory, setIsLoadingWorkflowHistory] = useState(false);
+  const initialWorkflowLoadRef = useRef(false);
+  const [currentConversationTitle, setCurrentConversationTitle] = useState<string | null>(null);
 
   // Sidebar state for workflow
   const [selectedTemplate, setSelectedTemplate] = useState<string>('none');
@@ -45,8 +48,10 @@ function AppContent() {
   ]);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [codeResult, setCodeResult] = useState<{ code: string; execution: ExecutionInfo | null } | null>(null);
-  const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null);
+  const [workflowCodeResult, setWorkflowCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null } | null>(null);
+  const [workflowSelectedMessageIndex, setWorkflowSelectedMessageIndex] = useState<number | null>(null);
+  const [chatCodeResult, setChatCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null } | null>(null);
+  const [chatSelectedMessageIndex, setChatSelectedMessageIndex] = useState<number | null>(null);
 
   const handleTemplateChange = (template: string) => {
     setSelectedTemplate(template);
@@ -77,143 +82,261 @@ function AppContent() {
       }
     ]);
     setActiveView('chat');
-    setCodeResult(null);
-    setSelectedMessageIndex(null);
+    setChatCodeResult(null);
+    setChatSelectedMessageIndex(null);
+    setCurrentConversationTitle(null);
   };
 
-  const handleConversationSelect = async (conversationId: string, switchToChat: boolean = true) => {
+  const handleConversationSelect = async (
+    conversationId: string,
+    {
+      focusView = 'chat',
+      autoSwitch = focusView === 'chat',
+      conversationTitle
+    }: { focusView?: 'chat' | 'workflow'; autoSwitch?: boolean; conversationTitle?: string } = {}
+  ) => {
+    if (conversationTitle) {
+      setCurrentConversationTitle(conversationTitle);
+    }
     try {
       const response = await conversationsService.getConversationDetail(conversationId);
       setCurrentConversationId(conversationId);
+      const resolvedConversationTitle = response.conversation?.title ?? conversationTitle ?? null;
+      setCurrentConversationTitle(resolvedConversationTitle);
 
-      const formattedMessages: ChatMessage[] = response.messages.map((msg: ApiMessage) => ({
-        role: msg.role,
-        content: msg.content,
-        timestamp: new Date(msg.created_at),
-        code: msg.code || undefined,
-        execution: msg.metadata?.execution || undefined
-      }));
+      const formattedMessages: ChatMessage[] = response.messages.map((msg: ApiMessage) => {
+        const metadata = msg.metadata || {};
+        const derivedName =
+          metadata.name ??
+          metadata.title ??
+          metadata.display_name ??
+          metadata.message_name ??
+          metadata.label ??
+          undefined;
+
+        const cleanedName =
+          typeof derivedName === 'string' && derivedName.trim().length > 0
+            ? derivedName.trim()
+            : undefined;
+
+        return {
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+          name: cleanedName ?? resolvedConversationTitle ?? undefined,
+          code: msg.code || undefined,
+          execution: metadata.execution || undefined
+        };
+      });
 
       setChatMessages(formattedMessages);
-      if (switchToChat) {
-        setActiveView('chat');
+      if (autoSwitch) {
+        setActiveView(focusView);
       }
 
       const latestWithCodeIndex = [...formattedMessages].reverse().findIndex((msg) => msg.code);
       if (latestWithCodeIndex !== -1) {
         const actualIndex = formattedMessages.length - 1 - latestWithCodeIndex;
         const latestWithCode = formattedMessages[actualIndex];
-        setCodeResult({
+
+        const resultPayload = {
           code: latestWithCode.code!,
-          execution: latestWithCode.execution || null
-        });
-        setSelectedMessageIndex(actualIndex);
+          execution: latestWithCode.execution || null,
+          messageName: latestWithCode.name ?? resolvedConversationTitle
+        };
+
+        if (focusView === 'workflow') {
+          setWorkflowCodeResult(resultPayload);
+          setWorkflowSelectedMessageIndex(actualIndex);
+        } else {
+          setChatCodeResult(resultPayload);
+          setChatSelectedMessageIndex(actualIndex);
+        }
       } else {
-        setCodeResult(null);
-        setSelectedMessageIndex(null);
+        if (focusView === 'workflow') {
+          setWorkflowCodeResult(null);
+          setWorkflowSelectedMessageIndex(null);
+        } else {
+          setChatCodeResult(null);
+          setChatSelectedMessageIndex(null);
+        }
       }
     } catch (error: any) {
       toast.error('Failed to load conversation');
     }
   };
 
-  const handleConversationCreated = (conversationId: string) => {
+  const handleConversationCreated = async (conversationId: string) => {
     setCurrentConversationId(conversationId);
+    setCurrentConversationTitle(null);
+
+    // Fetch new conversation and add to list
+    try {
+      const response = await conversationsService.getConversationDetail(conversationId);
+      if (response.conversation) {
+        const newConversation: Conversation = response.conversation;
+        // Add to front of all conversations list
+        setAllConversations(prev => {
+          const exists = prev.some(conv => conv.id === conversationId);
+          if (exists) return prev;
+          return [newConversation, ...prev];
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch new conversation:', error);
+    }
   };
 
-  const handleMessageClick = (index: number) => {
+  const handleChatMessageClick = (index: number) => {
     const message = chatMessages[index];
     if (message.code) {
-      setSelectedMessageIndex(index);
-      setCodeResult({
+      setChatSelectedMessageIndex(index);
+      setChatCodeResult({
         code: message.code,
-        execution: message.execution || null
+        execution: message.execution || null,
+        messageName: message.name ?? currentConversationTitle
       });
-      setShowCode(true);
-      setShowExecution(false);
     }
   };
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setCodeResult(null);
-      setSelectedMessageIndex(null);
+      setWorkflowCodeResult(null);
+      setWorkflowSelectedMessageIndex(null);
+      setChatCodeResult(null);
+      setChatSelectedMessageIndex(null);
       setAllConversations([]);
+      setWorkflowHistoryOffset(0);
+      setHasMoreWorkflowHistory(true);
+      setIsLoadingWorkflowHistory(false);
+      initialWorkflowLoadRef.current = false;
+      setCurrentConversationTitle(null);
     }
   }, [isAuthenticated]);
 
-  // Load conversations with message counts when switching to workflow view
-  useEffect(() => {
-    if (isAuthenticated && activeView === 'workflow' && allConversations.length === 0) {
-      loadAllConversations();
+  const loadWorkflowHistory = useCallback(async ({ reset = false }: { reset?: boolean } = {}) => {
+    if (!isAuthenticated) {
+      return;
     }
-  }, [isAuthenticated, activeView]);
 
-  const loadAllConversations = async () => {
+    if (!reset && (!hasMoreWorkflowHistory || isLoadingWorkflowHistory)) {
+      return;
+    }
+
+    setIsLoadingWorkflowHistory(true);
+
     try {
-      const response = await conversationsService.getConversations();
+      const effectiveOffset = reset ? 0 : workflowHistoryOffset;
 
-      // Load details and find first 3 conversations with exactly 2 messages
-      const workflowConversations: ConversationWithMessageCount[] = [];
-
-      for (const conv of response.conversations) {
-        // Stop when we have found 3 workflow conversations
-        if (workflowConversations.length >= 3) {
-          break;
-        }
-
-        try {
-          const detail = await conversationsService.getConversationDetail(conv.id);
-          const messageCount = detail.messages.length;
-
-          // Only keep conversations with exactly 2 messages
-          if (messageCount === 2) {
-            workflowConversations.push({
-              ...conv,
-              messageCount
-            });
-          }
-        } catch (error) {
-          console.error(`Failed to load details for conversation ${conv.id}:`, error);
-        }
+      if (reset) {
+        setWorkflowHistoryOffset(0);
+        setHasMoreWorkflowHistory(true);
       }
 
-      setAllConversations(workflowConversations);
+      const response = await conversationsService.getConversations({
+        limit: WORKFLOW_HISTORY_PAGE_SIZE,
+        offset: effectiveOffset
+      });
+
+      // 直接使用 API 返回的對話列表，不做額外請求
+      setAllConversations((prev) => {
+        if (reset) {
+          return response.conversations;
+        }
+
+        if (response.conversations.length === 0) {
+          return prev;
+        }
+
+        const existingIds = new Set(prev.map((conv) => conv.id));
+        const merged = [...prev];
+        for (const conv of response.conversations) {
+          if (!existingIds.has(conv.id)) {
+            merged.push(conv);
+          }
+        }
+        return merged;
+      });
+
+      const fetchedCount = response.conversations.length;
+      setWorkflowHistoryOffset(effectiveOffset + fetchedCount);
+      setHasMoreWorkflowHistory(fetchedCount === WORKFLOW_HISTORY_PAGE_SIZE && fetchedCount > 0);
     } catch (error: any) {
       if (!error.message?.includes('401')) {
         console.error('Failed to load conversations:', error);
       }
+    } finally {
+      setIsLoadingWorkflowHistory(false);
     }
-  };
+  }, [
+    hasMoreWorkflowHistory,
+    isAuthenticated,
+    isLoadingWorkflowHistory,
+    workflowHistoryOffset
+  ]);
+
+  useEffect(() => {
+    if (isAuthenticated && activeView === 'workflow') {
+      if (!initialWorkflowLoadRef.current) {
+        initialWorkflowLoadRef.current = true;
+        loadWorkflowHistory({ reset: true });
+      }
+    } else {
+      initialWorkflowLoadRef.current = false;
+    }
+  }, [activeView, isAuthenticated, loadWorkflowHistory]);
+
+  const handleReloadConversations = useCallback(() => {
+    loadWorkflowHistory({ reset: true });
+  }, [loadWorkflowHistory]);
 
   // Auto-select latest message with code when messages change
   useEffect(() => {
-    if (chatMessages.length > 0 && codeResult) {
+    if (chatMessages.length > 0 && chatCodeResult) {
       // Find the latest message with code
       for (let i = chatMessages.length - 1; i >= 0; i--) {
-        if (chatMessages[i].code === codeResult.code) {
-          setSelectedMessageIndex(i);
+        if (chatMessages[i].code === chatCodeResult.code) {
+          setChatSelectedMessageIndex(i);
           break;
         }
       }
     }
-  }, [chatMessages, codeResult]);
+  }, [chatMessages, chatCodeResult]);
 
   return (
-    <div className="flex h-screen bg-slate-950">
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      width: '100vw',
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0
+    }} className="bg-slate-950">
       <Sidebar
         workflows={workflows}
         totalExecutions={totalExecutions}
-        onConversationSelect={handleConversationSelect}
+        onConversationSelect={(id, meta) =>
+          handleConversationSelect(id, { conversationTitle: meta?.title })
+        }
         currentConversationId={currentConversationId}
         activeView={activeView}
         selectedTemplate={selectedTemplate}
         onTemplateChange={handleTemplateChange}
         uploadedFiles={uploadedFiles}
         onFilesChange={handleFilesChange}
+        onReloadConversations={handleReloadConversations}
       />
 
-      <div className="flex-1 flex flex-col">
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minWidth: 0
+      }}>
         {/* Header */}
         <header className="border-b border-slate-800 bg-gradient-to-r from-purple-600 to-blue-600 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -270,49 +393,74 @@ function AppContent() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-hidden">
+        <div style={{ flex: 1, overflow: 'hidden', width: '100%' }}>
           {activeView === 'workflow' ? (
-            <div className="h-full flex overflow-hidden">
+            <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>
               <WorkflowPanel
-                className="flex-1 min-w-0"
+                className="flex-1"
                 onGenerateWorkflow={handleGenerateWorkflow}
                 workflows={workflows}
                 allConversations={allConversations}
-                onConversationSelect={(id) => handleConversationSelect(id, false)}
+                isLoadingHistory={isLoadingWorkflowHistory}
+                hasMoreHistory={hasMoreWorkflowHistory}
+                onLoadMoreHistory={loadWorkflowHistory}
+                onReloadHistory={handleReloadConversations}
+                onConversationSelect={(id, meta) =>
+                  handleConversationSelect(id, {
+                    focusView: 'workflow',
+                    autoSwitch: false,
+                    conversationTitle: meta?.title
+                  })
+                }
                 selectedTemplate={selectedTemplate}
                 uploadedFiles={uploadedFiles}
                 onClearFiles={() => setUploadedFiles([])}
+                onWorkflowResult={({ code, execution, messageIndex, messageName }) => {
+                  setWorkflowCodeResult({
+                    code,
+                    execution,
+                    messageName: messageName ?? currentConversationTitle
+                  });
+                  setWorkflowSelectedMessageIndex(messageIndex ?? null);
+                }}
+                onConversationCreated={handleConversationCreated}
               />
-              <div className="w-[45%] min-w-0 shrink-0">
-                <CodeViewer
-                  code={codeResult?.code}
-                  execution={codeResult?.execution || null}
-                  messageIndex={selectedMessageIndex}
-                  viewLabel="Workflow Result"
-                />
+              <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
+                  <CodeViewer
+                    code={workflowCodeResult?.code}
+                    execution={workflowCodeResult?.execution || null}
+                    messageIndex={workflowSelectedMessageIndex}
+                    messageName={workflowCodeResult?.messageName ?? null}
+                    viewLabel="Workflow Result"
+                  />
               </div>
             </div>
           ) : (
-            <div className="h-full flex overflow-hidden">
+            <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>
               {isAuthenticated ? (
                 <>
                   <ChatPanel
-                    className="flex-1 min-w-0"
+                    className="flex-1"
                     messages={chatMessages}
                     setMessages={setChatMessages}
                     conversationId={currentConversationId}
                     onConversationCreated={handleConversationCreated}
-                    onCodeGenerated={({ code, execution }) => {
-                      setCodeResult({ code, execution: execution || null });
+                    onCodeGenerated={({ code, execution, messageName }) => {
+                      setChatCodeResult({
+                        code,
+                        execution: execution || null,
+                        messageName: messageName ?? currentConversationTitle
+                      });
                     }}
-                    onMessageClick={handleMessageClick}
-                    selectedMessageIndex={selectedMessageIndex}
+                    onMessageClick={handleChatMessageClick}
+                    selectedMessageIndex={chatSelectedMessageIndex}
                   />
-                  <div className="w-[45%] min-w-0 shrink-0">
+                  <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
                     <CodeViewer
-                      code={codeResult?.code}
-                      execution={codeResult?.execution || null}
-                      messageIndex={selectedMessageIndex}
+                      code={chatCodeResult?.code}
+                      execution={chatCodeResult?.execution || null}
+                      messageIndex={chatSelectedMessageIndex}
+                      messageName={chatCodeResult?.messageName ?? null}
                       viewLabel="Code Viewer"
                     />
                   </div>
