@@ -8,13 +8,21 @@ interface CodeViewerProps {
   execution?: ExecutionInfo | null;
   messageIndex?: number | null;
   viewLabel?: string;
+  messageName?: string | null;
 }
 
-export function CodeViewer({ code, execution, messageIndex, viewLabel = 'Code Viewer' }: CodeViewerProps) {
+export function CodeViewer({
+  code,
+  execution,
+  messageIndex,
+  viewLabel = 'Code Viewer',
+  messageName
+}: CodeViewerProps) {
   const [showCode, setShowCode] = useState(true);
   const [showExecution, setShowExecution] = useState(false);
 
   const hasContent = code || execution;
+  const headerLabel = messageName?.trim() ? messageName.trim() : null;
 
   if (!hasContent) {
     return (
@@ -42,23 +50,29 @@ export function CodeViewer({ code, execution, messageIndex, viewLabel = 'Code Vi
   }
 
   return (
-    <div className="flex flex-col h-full border-l border-slate-800 bg-slate-950">
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      width: '100%',
+      overflow: 'hidden'
+    }} className="border-l border-slate-800 bg-slate-950">
       {/* Header */}
-      <div className="border-b border-slate-800 px-6 py-3 shrink-0">
+      <div className="border-b border-slate-800 px-6 py-3" style={{ flexShrink: 0 }}>
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Code2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <Code2 className="w-4 h-4 text-slate-400" />
               <span className="text-slate-300 text-sm">{viewLabel}</span>
             </div>
-            {messageIndex !== null && messageIndex !== undefined && (
+            {headerLabel && (
               <div className="flex items-center gap-2 text-xs text-slate-400 border-l border-slate-700 pl-3">
-                <span>Message #{messageIndex + 1}</span>
+                <span>{headerLabel}</span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3">
             {code && (
               <Button
                 size="sm"
@@ -99,16 +113,21 @@ export function CodeViewer({ code, execution, messageIndex, viewLabel = 'Code Vi
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="p-6 space-y-4">
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        width: '100%'
+      }}>
+        <div className="p-6 space-y-4" style={{ width: '100%', boxSizing: 'border-box' }}>
           {/* Generated Code */}
           {code && showCode && (
-            <div>
+            <div style={{ width: '100%' }}>
               <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
                 Generated Code
               </h4>
-              <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-                <pre className="p-4 text-sm text-slate-200 overflow-x-auto">
+              <div className="bg-slate-900 border border-slate-800 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
+                <pre className="p-4 text-sm text-slate-200" style={{ margin: 0, whiteSpace: 'pre' }}>
                   <code>{code}</code>
                 </pre>
               </div>
@@ -119,24 +138,24 @@ export function CodeViewer({ code, execution, messageIndex, viewLabel = 'Code Vi
           {execution && showExecution && (
             <>
               {execution.stdout && (
-                <div>
+                <div style={{ width: '100%' }}>
                   <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
                     Execution Output
                   </h4>
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-                    <pre className="p-4 text-xs text-slate-300 whitespace-pre-wrap break-words">
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
+                    <pre className="p-4 text-xs text-slate-300" style={{ margin: 0, whiteSpace: 'pre' }}>
                       <code>{execution.stdout}</code>
                     </pre>
                   </div>
                 </div>
               )}
               {execution.error && (
-                <div>
+                <div style={{ width: '100%' }}>
                   <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
                     Execution Error
                   </h4>
-                  <div className="bg-red-950/20 border border-red-900/50 rounded-lg overflow-hidden">
-                    <pre className="p-4 text-xs text-red-300 whitespace-pre-wrap break-words">
+                  <div className="bg-red-950/20 border border-red-900/50 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
+                    <pre className="p-4 text-xs text-red-300" style={{ margin: 0, whiteSpace: 'pre' }}>
                       <code>{execution.error}</code>
                     </pre>
                   </div>

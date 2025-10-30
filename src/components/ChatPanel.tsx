@@ -9,6 +9,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  name?: string;
   code?: string;
   execution?: {
     success: boolean;
@@ -22,7 +23,7 @@ interface ChatPanelProps {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   conversationId?: string;
   onConversationCreated?: (conversationId: string) => void;
-  onCodeGenerated?: (payload: { code: string; execution: ChatMessage['execution'] }) => void;
+  onCodeGenerated?: (payload: { code: string; execution: ChatMessage['execution']; messageName?: string | null }) => void;
   onMessageClick?: (index: number) => void;
   selectedMessageIndex?: number | null;
   className?: string;
@@ -82,6 +83,7 @@ export function ChatPanel({
           ? (response.execution.stdout || 'Code executed successfully')
           : (response.execution.error || 'Code execution failed'),
         timestamp: new Date(),
+        name: response.nodes?.[0]?.name || undefined,
         code: response.code,
         execution: response.execution
       };
@@ -93,6 +95,7 @@ export function ChatPanel({
         onCodeGenerated?.({
           code: response.code,
           execution: response.execution,
+          messageName: response.nodes?.[0]?.name || null
         });
       }
 
