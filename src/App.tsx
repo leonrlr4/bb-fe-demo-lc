@@ -396,44 +396,62 @@ function AppContent() {
         <div style={{ flex: 1, overflow: 'hidden', width: '100%' }}>
           {activeView === 'workflow' ? (
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>
-              <WorkflowPanel
-                className="flex-1"
-                onGenerateWorkflow={handleGenerateWorkflow}
-                workflows={workflows}
-                allConversations={allConversations}
-                isLoadingHistory={isLoadingWorkflowHistory}
-                hasMoreHistory={hasMoreWorkflowHistory}
-                onLoadMoreHistory={loadWorkflowHistory}
-                onReloadHistory={handleReloadConversations}
-                onConversationSelect={(id, meta) =>
-                  handleConversationSelect(id, {
-                    focusView: 'workflow',
-                    autoSwitch: false,
-                    conversationTitle: meta?.title
-                  })
-                }
-                selectedTemplate={selectedTemplate}
-                uploadedFiles={uploadedFiles}
-                onClearFiles={() => setUploadedFiles([])}
-                onWorkflowResult={({ code, execution, messageIndex, messageName }) => {
-                  setWorkflowCodeResult({
-                    code,
-                    execution,
-                    messageName: messageName ?? currentConversationTitle
-                  });
-                  setWorkflowSelectedMessageIndex(messageIndex ?? null);
-                }}
-                onConversationCreated={handleConversationCreated}
-              />
-              <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
-                  <CodeViewer
-                    code={workflowCodeResult?.code}
-                    execution={workflowCodeResult?.execution || null}
-                    messageIndex={workflowSelectedMessageIndex}
-                    messageName={workflowCodeResult?.messageName ?? null}
-                    viewLabel="Workflow Result"
+              {isAuthenticated ? (
+                <>
+                  <WorkflowPanel
+                    className="flex-1"
+                    onGenerateWorkflow={handleGenerateWorkflow}
+                    workflows={workflows}
+                    allConversations={allConversations}
+                    isLoadingHistory={isLoadingWorkflowHistory}
+                    hasMoreHistory={hasMoreWorkflowHistory}
+                    onLoadMoreHistory={loadWorkflowHistory}
+                    onReloadHistory={handleReloadConversations}
+                    onConversationSelect={(id, meta) =>
+                      handleConversationSelect(id, {
+                        focusView: 'workflow',
+                        autoSwitch: false,
+                        conversationTitle: meta?.title
+                      })
+                    }
+                    selectedTemplate={selectedTemplate}
+                    uploadedFiles={uploadedFiles}
+                    onClearFiles={() => setUploadedFiles([])}
+                    onWorkflowResult={({ code, execution, messageIndex, messageName }) => {
+                      setWorkflowCodeResult({
+                        code,
+                        execution,
+                        messageName: messageName ?? currentConversationTitle
+                      });
+                      setWorkflowSelectedMessageIndex(messageIndex ?? null);
+                    }}
+                    onConversationCreated={handleConversationCreated}
                   />
-              </div>
+                  <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
+                      <CodeViewer
+                        code={workflowCodeResult?.code}
+                        execution={workflowCodeResult?.execution || null}
+                        messageIndex={workflowSelectedMessageIndex}
+                        messageName={workflowCodeResult?.messageName ?? null}
+                        viewLabel="Workflow Result"
+                      />
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <Code2 className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+                    <h2 className="text-2xl text-slate-300 mb-2">Welcome to BioBuild</h2>
+                    <p className="text-slate-500 mb-6">Please login or register to start using the AI assistant</p>
+                    <Button
+                      onClick={() => setAuthDialogOpen(true)}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      Login / Register
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>

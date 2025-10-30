@@ -320,12 +320,12 @@ export function Sidebar({
             </p>
           ) : (
             <>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {conversations.map((conversation) => (
                   <div
                     key={conversation.id}
                     onClick={() => onConversationSelect?.(conversation.id, { title: conversation.title })}
-                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+                    className={`px-3 py-3 rounded-lg cursor-pointer transition-all ${
                       currentConversationId === conversation.id
                         ? 'bg-purple-600 text-white'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
