@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Upload, Info, MessageSquare, Clock } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Upload, Info, MessageSquare, Clock, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { conversationsService, Conversation } from '../services';
@@ -8,13 +8,14 @@ import { useAuth } from '../contexts/AuthContext';
 interface SidebarProps {
   workflows: any[];
   totalExecutions: number;
-  onConversationSelect?: (conversationId: string) => void;
+  onConversationSelect?: (conversationId: string, meta?: { title?: string }) => void;
   currentConversationId?: string;
   activeView?: 'chat' | 'workflow';
   selectedTemplate?: string;
   onTemplateChange?: (template: string) => void;
   uploadedFiles?: File[];
   onFilesChange?: (files: File[]) => void;
+  onReloadConversations?: () => void;
 }
 
 export function Sidebar({
@@ -26,34 +27,126 @@ export function Sidebar({
   selectedTemplate = 'none',
   onTemplateChange,
   uploadedFiles = [],
-  onFilesChange
+  onFilesChange,
+  onReloadConversations
 }: SidebarProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isPaginating, setIsPaginating] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const { isAuthenticated } = useAuth();
+  const hasMoreRef = useRef(hasMore);
+  const isPaginatingRef = useRef(isPaginating);
+  const PAGE_SIZE = 10;
+
+  // 同步 ref
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadConversations();
-    } else {
-      setConversations([]);
-    }
-  }, [isAuthenticated]);
+    isPaginatingRef.current = isPaginating;
+  }, [isPaginating]);
 
-  const loadConversations = async () => {
-    setIsLoadingConversations(true);
+  const conversationsRef = useRef<Conversation[]>([]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const loadConversations = useCallback(async ({ reset = false }: { reset?: boolean } = {}) => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    if (reset) {
+      setIsLoadingConversations(true);
+      setHasMore(true);
+    } else {
+      if (!hasMoreRef.current || isPaginatingRef.current) {
+        return;
+      }
+      setIsPaginating(true);
+    }
+
     try {
-      const response = await conversationsService.getConversations();
-      setConversations(response.conversations);
+      const offset = reset ? 0 : conversationsRef.current.length;
+
+      const response = await conversationsService.getConversations({
+        limit: PAGE_SIZE,
+        offset
+      });
+
+      const fetched = response.conversations;
+
+      setConversations((prev) => {
+        const base = reset ? [] : prev;
+        const existingIds = new Set(base.map((conv) => conv.id));
+        const merged = [...base];
+
+        fetched.forEach((conv) => {
+          if (!existingIds.has(conv.id)) {
+            merged.push(conv);
+          }
+        });
+
+        return merged;
+      });
+
+      setHasMore(fetched.length === PAGE_SIZE);
     } catch (error: any) {
       if (!error.message?.includes('401')) {
         toast.error('Failed to load conversations');
       }
     } finally {
-      setIsLoadingConversations(false);
+      if (reset) {
+        setIsLoadingConversations(false);
+      } else {
+        setIsPaginating(false);
+      }
     }
-  };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void loadConversations({ reset: true });
+    } else {
+      setConversations([]);
+      setHasMore(true);
+      setIsLoadingConversations(false);
+      setIsPaginating(false);
+    }
+  }, [isAuthenticated, loadConversations]);
+
+  useEffect(() => {
+    if (!isAuthenticated || activeView !== 'chat' || !hasMore) {
+      return;
+    }
+
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        void loadConversations();
+      }
+    }, {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    });
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isAuthenticated, activeView, hasMore, loadConversations, conversations.length]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -109,7 +202,13 @@ export function Sidebar({
   };
 
   return (
-    <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+    <div style={{
+      width: '256px',
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }} className="bg-slate-900 border-r border-slate-800">
       {/* Data Management - only show in workflow view */}
       {activeView === 'workflow' && (
         <div className="p-4 border-b border-slate-800">
@@ -186,9 +285,27 @@ export function Sidebar({
       {/* Conversation History - only show in chat view */}
       {activeView === 'chat' && (
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="w-4 h-4 text-slate-400" />
-            <h3 className="text-slate-200 text-sm font-medium">Recent Chats</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-slate-400" />
+              <h3 className="text-slate-200 text-sm font-medium">Recent Chats</h3>
+            </div>
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  loadConversations({ reset: true });
+                  onReloadConversations?.();
+                }}
+                className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
+                title="Reload conversations"
+                type="button"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </Button>
+            )}
           </div>
 
           {!isAuthenticated ? (
@@ -202,27 +319,38 @@ export function Sidebar({
               No conversations yet
             </p>
           ) : (
-            <div className="space-y-2">
-              {conversations.slice(0, 5).map((conversation) => (
-                <div
-                  key={conversation.id}
-                  onClick={() => onConversationSelect?.(conversation.id)}
-                  className={`px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
-                    currentConversationId === conversation.id
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  <p className="text-sm font-medium truncate mb-1.5 leading-tight">
-                    {conversation.title}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-xs opacity-75">
-                    <Clock className="w-3 h-3" />
-                    <span>{new Date(conversation.updated_at).toLocaleDateString()}</span>
+            <>
+              <div className="space-y-2">
+                {conversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    onClick={() => onConversationSelect?.(conversation.id, { title: conversation.title })}
+                    className={`px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+                      currentConversationId === conversation.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    <p className="text-sm font-medium truncate mb-1.5 leading-tight">
+                      {conversation.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-xs opacity-75">
+                      <Clock className="w-3 h-3" />
+                      <span>{new Date(conversation.updated_at).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+                {hasMore && (
+                  <div ref={loadMoreRef} className="h-1" />
+                )}
+              </div>
+              {isPaginating && (
+                <p className="text-xs text-slate-500 text-center py-2">Loading more...</p>
+              )}
+              {!hasMore && conversations.length > 0 && (
+                <p className="text-xs text-slate-500 text-center py-2">Showing latest conversations</p>
+              )}
+            </>
           )}
         </div>
       )}
