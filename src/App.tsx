@@ -345,13 +345,13 @@ function AppContent() {
                   )}
                 </div>
                 {codeResult ? (
-                  <div className="flex-1 overflow-y-auto p-6">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
                     {showCode ? (
-                      <div>
+                      <div className="min-w-0">
                         <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                           Generated Code
                         </h4>
-                        <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre-wrap break-all overflow-auto">
+                        <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre overflow-x-auto max-w-full">
                           <code>{codeResult.code}</code>
                         </pre>
                       </div>
@@ -364,21 +364,21 @@ function AppContent() {
                     {showExecution && codeResult.execution && (
                       <>
                         {codeResult.execution.stdout && (
-                          <div className="mt-4">
+                          <div className="mt-4 min-w-0">
                             <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                               Execution Output
                             </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre-wrap break-all overflow-auto">
+                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre overflow-x-auto max-w-full">
                               <code>{codeResult.execution.stdout}</code>
                             </pre>
                           </div>
                         )}
                         {codeResult.execution.error && (
-                          <div className="mt-4">
+                          <div className="mt-4 min-w-0">
                             <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                               Execution Error
                             </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre-wrap break-all overflow-auto">
+                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre overflow-x-auto max-w-full">
                               <code>{codeResult.execution.error}</code>
                             </pre>
                           </div>
@@ -471,13 +471,13 @@ function AppContent() {
                       )}
                     </div>
                     {codeResult ? (
-                      <div className="flex-1 overflow-y-auto p-6">
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden p-6">
                         {showCode ? (
-                          <div>
+                          <div className="min-w-0">
                             <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                               Generated Code
                             </h4>
-                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre-wrap break-all overflow-auto">
+                            <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-sm text-slate-200 whitespace-pre overflow-x-auto max-w-full">
                               <code>{codeResult.code}</code>
                             </pre>
                           </div>
@@ -490,21 +490,21 @@ function AppContent() {
                         {showExecution && codeResult.execution && (
                           <>
                             {codeResult.execution.stdout && (
-                              <div className="mt-4">
+                              <div className="mt-4 min-w-0">
                                 <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                                   Execution Output
                                 </h4>
-                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre-wrap break-all overflow-auto">
+                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-slate-300 whitespace-pre overflow-x-auto max-w-full">
                                   <code>{codeResult.execution.stdout}</code>
                                 </pre>
                               </div>
                             )}
                             {codeResult.execution.error && (
-                              <div className="mt-4">
+                              <div className="mt-4 min-w-0">
                                 <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2">
                                   Execution Error
                                 </h4>
-                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre-wrap break-all overflow-auto">
+                                <pre className="bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs text-red-300 whitespace-pre overflow-x-auto max-w-full">
                                   <code>{codeResult.execution.error}</code>
                                 </pre>
                               </div>
