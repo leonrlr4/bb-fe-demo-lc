@@ -240,7 +240,7 @@ export function ChatPanel({
             disabled={isLoading}
           >
             <Upload className="w-4 h-4 mr-2" />
-            Upload File
+            Upload Files
           </Button>
         </div>
         <div className="relative">
