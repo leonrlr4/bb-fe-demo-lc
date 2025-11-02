@@ -33,7 +33,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_BASE_URL: https://3.91.189.179
+          VITE_API_BASE_URL: http://3.91.189.179
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
