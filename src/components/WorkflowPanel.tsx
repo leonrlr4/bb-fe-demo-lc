@@ -8,6 +8,7 @@ import { Conversation } from '../services';
 import { chatService } from '../services';
 import { toast } from 'sonner';
 import { ExecutionInfo } from '../types';
+import { formatConversationDate, formatFullDateTime } from '../utils/dateFormat';
 
 interface WorkflowPanelProps {
   className?: string;
@@ -15,10 +16,11 @@ interface WorkflowPanelProps {
   workflows: any[];
   allConversations: Conversation[];
   onConversationSelect?: (conversationId: string, meta?: { title?: string }) => void;
+  currentConversationId?: string;
   selectedTemplate?: string;
   uploadedFiles?: File[];
   onClearFiles?: () => void;
-  onWorkflowResult?: (payload: { code: string; execution: ExecutionInfo | null; messageIndex?: number; messageName?: string | null }) => void;
+  onWorkflowResult?: (payload: { code: string; execution: ExecutionInfo | null; messageIndex?: number; messageName?: string | null; inputFiles?: any[]; outputFiles?: any[] }) => void;
   isLoadingHistory?: boolean;
   hasMoreHistory?: boolean;
   onLoadMoreHistory?: () => void | Promise<void>;
@@ -40,6 +42,7 @@ export function WorkflowPanel({
   workflows,
   allConversations,
   onConversationSelect,
+  currentConversationId,
   selectedTemplate = 'none',
   uploadedFiles = [],
   onClearFiles,
@@ -159,7 +162,9 @@ export function WorkflowPanel({
         code: response.code,
         execution: response.execution || null,
         messageIndex: 1,
-        messageName: response.nodes?.[0]?.name ?? null
+        messageName: response.nodes?.[0]?.name ?? null,
+        inputFiles: response.input_files || [],
+        outputFiles: response.output_files || []
       });
 
       // Clear form
@@ -200,20 +205,6 @@ export function WorkflowPanel({
           <div className="max-w-4xl">
             <h2 className="text-slate-200 mb-4">Natural Language Query</h2>
             <div className="space-y-4">
-              {/* Info about uploaded files */}
-              {uploadedFiles.length > 0 && (
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                  <div className="text-xs text-slate-400 mb-2">Uploaded files ({uploadedFiles.length}):</div>
-                  <div className="space-y-1">
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="text-xs text-slate-300">
-                        • {file.name}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Query Input */}
               <div>
                 <div className="text-sm text-slate-400 mb-2">Ask your bioinformatics question:</div>
@@ -292,14 +283,30 @@ export function WorkflowPanel({
                 <Card
                   key={conversation.id}
                   onClick={() => onConversationSelect?.(conversation.id, { title: conversation.title })}
-                  className="bg-slate-800 border-slate-700 p-4 cursor-pointer hover:bg-slate-750 transition-colors"
+                  className={`p-4 cursor-pointer transition-colors ${
+                    currentConversationId === conversation.id
+                      ? 'bg-purple-600 border-purple-500'
+                      : 'bg-slate-800 border-slate-700 hover:bg-slate-750'
+                  }`}
+                  title={formatFullDateTime(conversation.created_at)}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
-                      {new Date(conversation.created_at).toLocaleDateString()}
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        currentConversationId === conversation.id
+                          ? 'border-purple-300 text-purple-100'
+                          : 'border-slate-600 text-slate-400'
+                      }`}
+                    >
+                      {formatConversationDate(conversation.created_at)}
                     </Badge>
                   </div>
-                  <p className="text-sm text-slate-400 line-clamp-2">{conversation.title}</p>
+                  <p className={`text-sm line-clamp-2 ${
+                    currentConversationId === conversation.id
+                      ? 'text-white'
+                      : 'text-slate-400'
+                  }`}>{conversation.title}</p>
                 </Card>
               ))}
             </div>

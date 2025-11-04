@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Upload, Info, MessageSquare, Clock, RefreshCw, Plus } from 'lucide-react';
+import { Upload, Info, MessageSquare, Clock, RefreshCw, Plus, FileText } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
 import { conversationsService, Conversation } from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import { formatConversationDate, formatFullDateTime } from '../utils/dateFormat';
 
 interface SidebarProps {
   workflows: any[];
@@ -263,6 +264,34 @@ export function Sidebar({
               </Button>
             </label>
           </div>
+
+          {/* Uploaded Files List */}
+          {uploadedFiles && uploadedFiles.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-xs text-slate-400 mb-2">Uploaded files ({uploadedFiles.length}):</h4>
+              <div className="space-y-2">
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-300 hover:border-slate-600 transition-colors"
+                  >
+                    <FileText className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                    <span className="flex-1 truncate">{file.name}</span>
+                    <button
+                      onClick={() => {
+                        const newFiles = uploadedFiles.filter((_, i) => i !== index);
+                        onFilesChange?.(newFiles);
+                      }}
+                      className="w-5 h-5 flex items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all font-bold text-sm flex-shrink-0"
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -348,13 +377,14 @@ export function Sidebar({
                         ? 'bg-purple-600 text-white'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
+                    title={formatFullDateTime(conversation.updated_at)}
                   >
                     <p className="text-sm font-medium truncate mb-1.5 leading-tight">
                       {conversation.title}
                     </p>
                     <div className="flex items-center gap-1.5 text-xs opacity-75">
                       <Clock className="w-3 h-3" />
-                      <span>{new Date(conversation.updated_at).toLocaleDateString()}</span>
+                      <span>{formatConversationDate(conversation.updated_at)}</span>
                     </div>
                   </div>
                 ))}

@@ -11,7 +11,8 @@ import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
 import { conversationsService, Message as ApiMessage, Conversation } from './services';
 import { toast } from 'sonner';
-import { ExecutionInfo } from './types';
+import { ExecutionInfo, OutputFileInfo } from './types';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 // Template definitions
 const TEMPLATES = [
@@ -48,9 +49,9 @@ function AppContent() {
   ]);
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>();
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
-  const [workflowCodeResult, setWorkflowCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null } | null>(null);
+  const [workflowCodeResult, setWorkflowCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null; inputFiles?: OutputFileInfo[]; outputFiles?: OutputFileInfo[] } | null>(null);
   const [workflowSelectedMessageIndex, setWorkflowSelectedMessageIndex] = useState<number | null>(null);
-  const [chatCodeResult, setChatCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null } | null>(null);
+  const [chatCodeResult, setChatCodeResult] = useState<{ code: string; execution: ExecutionInfo | null; messageName?: string | null; inputFiles?: OutputFileInfo[]; outputFiles?: OutputFileInfo[] } | null>(null);
   const [chatSelectedMessageIndex, setChatSelectedMessageIndex] = useState<number | null>(null);
 
   const handleTemplateChange = (template: string) => {
@@ -106,6 +107,7 @@ function AppContent() {
 
       const formattedMessages: ChatMessage[] = response.messages.map((msg: ApiMessage) => {
         const metadata = msg.metadata || {};
+
         const derivedName =
           metadata.name ??
           metadata.title ??
@@ -125,7 +127,9 @@ function AppContent() {
           timestamp: new Date(msg.created_at),
           name: cleanedName ?? resolvedConversationTitle ?? undefined,
           code: msg.code || undefined,
-          execution: metadata.execution || undefined
+          execution: metadata.execution || undefined,
+          inputFiles: metadata.input_files || [],
+          outputFiles: metadata.output_files || []
         };
       });
 
@@ -142,7 +146,9 @@ function AppContent() {
         const resultPayload = {
           code: latestWithCode.code!,
           execution: latestWithCode.execution || null,
-          messageName: latestWithCode.name ?? resolvedConversationTitle
+          messageName: latestWithCode.name ?? resolvedConversationTitle,
+          inputFiles: latestWithCode.inputFiles || [],
+          outputFiles: latestWithCode.outputFiles || []
         };
 
         if (focusView === 'workflow') {
@@ -194,7 +200,9 @@ function AppContent() {
       setChatCodeResult({
         code: message.code,
         execution: message.execution || null,
-        messageName: message.name ?? currentConversationTitle
+        messageName: message.name ?? currentConversationTitle,
+        inputFiles: message.inputFiles || [],
+        outputFiles: message.outputFiles || []
       });
     }
   };
@@ -398,46 +406,54 @@ function AppContent() {
           {activeView === 'workflow' ? (
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>
               {isAuthenticated ? (
-                <>
-                  <WorkflowPanel
-                    className="flex-1"
-                    onGenerateWorkflow={handleGenerateWorkflow}
-                    workflows={workflows}
-                    allConversations={allConversations}
-                    isLoadingHistory={isLoadingWorkflowHistory}
-                    hasMoreHistory={hasMoreWorkflowHistory}
-                    onLoadMoreHistory={loadWorkflowHistory}
-                    onReloadHistory={handleReloadConversations}
-                    onConversationSelect={(id, meta) =>
-                      handleConversationSelect(id, {
-                        focusView: 'workflow',
-                        autoSwitch: false,
-                        conversationTitle: meta?.title
-                      })
-                    }
-                    selectedTemplate={selectedTemplate}
-                    uploadedFiles={uploadedFiles}
-                    onClearFiles={() => setUploadedFiles([])}
-                    onWorkflowResult={({ code, execution, messageIndex, messageName }) => {
-                      setWorkflowCodeResult({
-                        code,
-                        execution,
-                        messageName: messageName ?? currentConversationTitle
-                      });
-                      setWorkflowSelectedMessageIndex(messageIndex ?? null);
-                    }}
-                    onConversationCreated={handleConversationCreated}
-                  />
-                  <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
-                      <CodeViewer
-                        code={workflowCodeResult?.code}
-                        execution={workflowCodeResult?.execution || null}
-                        messageIndex={workflowSelectedMessageIndex}
-                        messageName={workflowCodeResult?.messageName ?? null}
-                        viewLabel="Workflow Result"
-                      />
-                  </div>
-                </>
+                <PanelGroup direction="horizontal">
+                  <Panel defaultSize={55} minSize={30}>
+                    <WorkflowPanel
+                      className="h-full"
+                      onGenerateWorkflow={handleGenerateWorkflow}
+                      workflows={workflows}
+                      allConversations={allConversations}
+                      currentConversationId={currentConversationId}
+                      isLoadingHistory={isLoadingWorkflowHistory}
+                      hasMoreHistory={hasMoreWorkflowHistory}
+                      onLoadMoreHistory={loadWorkflowHistory}
+                      onReloadHistory={handleReloadConversations}
+                      onConversationSelect={(id, meta) =>
+                        handleConversationSelect(id, {
+                          focusView: 'workflow',
+                          autoSwitch: false,
+                          conversationTitle: meta?.title
+                        })
+                      }
+                      selectedTemplate={selectedTemplate}
+                      uploadedFiles={uploadedFiles}
+                      onClearFiles={() => setUploadedFiles([])}
+                      onWorkflowResult={({ code, execution, messageIndex, messageName, inputFiles, outputFiles }) => {
+                        setWorkflowCodeResult({
+                          code,
+                          execution,
+                          messageName: messageName ?? currentConversationTitle,
+                          inputFiles: inputFiles || [],
+                          outputFiles: outputFiles || []
+                        });
+                        setWorkflowSelectedMessageIndex(messageIndex ?? null);
+                      }}
+                      onConversationCreated={handleConversationCreated}
+                    />
+                  </Panel>
+                  <PanelResizeHandle className="w-1 bg-slate-800 hover:bg-purple-500 transition-colors" />
+                  <Panel defaultSize={45} minSize={30}>
+                    <CodeViewer
+                      code={workflowCodeResult?.code}
+                      execution={workflowCodeResult?.execution || null}
+                      messageIndex={workflowSelectedMessageIndex}
+                      messageName={workflowCodeResult?.messageName ?? null}
+                      inputFiles={workflowCodeResult?.inputFiles || []}
+                      outputFiles={workflowCodeResult?.outputFiles || []}
+                      viewLabel="Workflow Result"
+                    />
+                  </Panel>
+                </PanelGroup>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
@@ -457,33 +473,40 @@ function AppContent() {
           ) : (
             <div style={{ height: '100%', display: 'flex', overflow: 'hidden', width: '100%' }}>
               {isAuthenticated ? (
-                <>
-                  <ChatPanel
-                    className="flex-1"
-                    messages={chatMessages}
-                    setMessages={setChatMessages}
-                    conversationId={currentConversationId}
-                    onConversationCreated={handleConversationCreated}
-                    onCodeGenerated={({ code, execution, messageName }) => {
-                      setChatCodeResult({
-                        code,
-                        execution: execution || null,
-                        messageName: messageName ?? currentConversationTitle
-                      });
-                    }}
-                    onMessageClick={handleChatMessageClick}
-                    selectedMessageIndex={chatSelectedMessageIndex}
-                  />
-                  <div style={{ width: '45%', flexShrink: 0, height: '100%' }}>
+                <PanelGroup direction="horizontal">
+                  <Panel defaultSize={55} minSize={30}>
+                    <ChatPanel
+                      className="h-full"
+                      messages={chatMessages}
+                      setMessages={setChatMessages}
+                      conversationId={currentConversationId}
+                      onConversationCreated={handleConversationCreated}
+                      onCodeGenerated={({ code, execution, messageName, inputFiles, outputFiles }) => {
+                        setChatCodeResult({
+                          code,
+                          execution: execution || null,
+                          messageName: messageName ?? currentConversationTitle,
+                          inputFiles: inputFiles || [],
+                          outputFiles: outputFiles || []
+                        });
+                      }}
+                      onMessageClick={handleChatMessageClick}
+                      selectedMessageIndex={chatSelectedMessageIndex}
+                    />
+                  </Panel>
+                  <PanelResizeHandle className="w-1 bg-slate-800 hover:bg-purple-500 transition-colors" />
+                  <Panel defaultSize={45} minSize={30}>
                     <CodeViewer
                       code={chatCodeResult?.code}
                       execution={chatCodeResult?.execution || null}
                       messageIndex={chatSelectedMessageIndex}
                       messageName={chatCodeResult?.messageName ?? null}
+                      inputFiles={chatCodeResult?.inputFiles || []}
+                      outputFiles={chatCodeResult?.outputFiles || []}
                       viewLabel="Code Viewer"
                     />
-                  </div>
-                </>
+                  </Panel>
+                </PanelGroup>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">

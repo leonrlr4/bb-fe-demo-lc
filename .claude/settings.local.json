@@ -8,7 +8,11 @@
       "Bash(curl:*)",
       "Bash(npm run build:*)",
       "WebFetch(domain:leonrlr4.github.io)",
-      "Bash(VITE_API_BASE_URL=https://api.biobuild.bio npm run build:*)"
+      "Bash(VITE_API_BASE_URL=https://api.biobuild.bio npm run build:*)",
+      "Bash(ping:*)",
+      "Bash(VITE_API_BASE_URL=https://3.91.189.179/ npm run build:*)",
+      "Bash(gh run:*)",
+      "Bash(VITE_API_BASE_URL=https://api.bb-temp.click npm run build:*)"
     ],
     "deny": [],
     "ask": []

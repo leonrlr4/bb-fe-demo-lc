@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
-import { Send, Upload, CheckCircle, XCircle } from 'lucide-react';
+import { Send, Upload, CheckCircle, XCircle, FileText } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { chatService, GenerateCodeResponse } from '../services';
@@ -16,6 +16,8 @@ export interface ChatMessage {
     stdout: string | null;
     error: string | null;
   };
+  inputFiles?: any[];
+  outputFiles?: any[];
 }
 
 interface ChatPanelProps {
@@ -23,7 +25,7 @@ interface ChatPanelProps {
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   conversationId?: string;
   onConversationCreated?: (conversationId: string) => void;
-  onCodeGenerated?: (payload: { code: string; execution: ChatMessage['execution']; messageName?: string | null }) => void;
+  onCodeGenerated?: (payload: { code: string; execution: ChatMessage['execution']; messageName?: string | null; inputFiles?: any[]; outputFiles?: any[] }) => void;
   onMessageClick?: (index: number) => void;
   selectedMessageIndex?: number | null;
   className?: string;
@@ -95,7 +97,9 @@ export function ChatPanel({
         onCodeGenerated?.({
           code: response.code,
           execution: response.execution,
-          messageName: response.nodes?.[0]?.name || null
+          messageName: response.nodes?.[0]?.name || null,
+          inputFiles: response.input_files || [],
+          outputFiles: response.output_files || []
         });
       }
 
@@ -230,9 +234,16 @@ export function ChatPanel({
         {uploadedFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {uploadedFiles.map((file, index) => (
-              <div key={index} className="flex items-center gap-2 bg-slate-800 px-2 py-1 rounded text-xs text-slate-300">
-                <span>{file.name}</span>
-                <button onClick={() => removeFile(index)} className="text-slate-500 hover:text-white">×</button>
+              <div key={index} className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-300 hover:border-slate-600 transition-colors">
+                <FileText className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                <span className="flex-1">{file.name}</span>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="ml-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all font-bold text-sm"
+                  title="Remove file"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>
