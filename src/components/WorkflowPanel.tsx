@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Plus } from 'lucide-react';
 import { Conversation } from '../services';
 import { chatService } from '../services';
 import { toast } from 'sonner';
@@ -176,6 +176,14 @@ export function WorkflowPanel({
     }
   };
 
+  const handleNewWorkflow = () => {
+    setQuery('');
+    if (onClearFiles) {
+      onClearFiles();
+    }
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div
       ref={scrollContainerRef}
@@ -221,9 +229,19 @@ export function WorkflowPanel({
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  className="bg-blue-600 hover:bg-blue-700 flex-1"
+                  className="bg-blue-600 hover:bg-blue-700 flex-1 relative overflow-hidden"
                 >
-                  {isGenerating ? 'Generating...' : 'Generate Workflow'}
+                  {isGenerating ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating workflow...</span>
+                    </div>
+                  ) : (
+                    'Generate Workflow'
+                  )}
+                  {isGenerating && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+                  )}
                 </Button>
               </div>
             </div>
@@ -236,21 +254,37 @@ export function WorkflowPanel({
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-slate-300">Workflow History</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation();
-                console.log('Reload clicked');
-                onReloadHistory?.();
-              }}
-              className="h-8 px-3 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
-              title="Reload workflow history"
-              type="button"
-            >
-              <RefreshCw className="w-4 h-4 mr-1.5" />
-              Reload
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  handleNewWorkflow();
+                }}
+                className="h-8 px-3 text-blue-400 hover:text-blue-300 hover:bg-slate-800 cursor-pointer relative z-10"
+                title="Create new workflow"
+                type="button"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                New
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  console.log('Reload clicked');
+                  onReloadHistory?.();
+                }}
+                className="h-8 px-3 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer relative z-10"
+                title="Reload workflow history"
+                type="button"
+              >
+                <RefreshCw className="w-4 h-4 mr-1.5" />
+                Reload
+              </Button>
+            </div>
           </div>
           {workflowHistory.length > 0 ? (
             <div className="grid grid-cols-2 gap-4">

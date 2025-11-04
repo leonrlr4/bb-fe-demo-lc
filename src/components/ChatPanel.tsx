@@ -198,10 +198,17 @@ export function ChatPanel({
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 text-slate-200 rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
-                <span className="text-sm">Generating code...</span>
+            <div className="bg-slate-800 text-slate-200 rounded-lg px-4 py-3 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                  <span className="text-sm font-medium text-purple-300">Generating code...</span>
+                </div>
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
               </div>
             </div>
           </div>
