@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Code2, CheckCircle, XCircle, Download, FileText, File, Eye } from 'lucide-react';
 import { Button } from './ui/button';
 import { ExecutionInfo, OutputFileInfo } from '../types';
+import { STORAGE_KEYS } from '../constants';
 
 interface CodeViewerProps {
   code?: string;
@@ -158,15 +159,15 @@ export function CodeViewer({
         overflowX: 'hidden',
         width: '100%'
       }}>
-        <div className="p-6 space-y-4" style={{ width: '100%', boxSizing: 'border-box' }}>
+        <div className="p-6 space-y-6" style={{ width: '100%', boxSizing: 'border-box' }}>
           {/* Generated Code */}
           {code && showCode && (
             <div ref={codeRef} style={{ width: '100%' }}>
-              <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
+              <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-3 font-semibold">
                 Generated Code
               </h4>
               <div className="bg-slate-900 border border-slate-800 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
-                <pre className="p-4 text-sm text-slate-200" style={{ margin: 0, whiteSpace: 'pre' }}>
+                <pre className="p-5 text-sm text-slate-200" style={{ margin: 0, whiteSpace: 'pre' }}>
                   <code>{code}</code>
                 </pre>
               </div>
@@ -175,14 +176,14 @@ export function CodeViewer({
 
           {/* Execution Output */}
           {execution && showExecution && (
-            <div ref={executionRef}>
+            <div ref={executionRef} className="space-y-6">
               {execution.stdout && (
                 <div style={{ width: '100%' }}>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
+                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-3 font-semibold">
                     Execution Output
                   </h4>
                   <div className="bg-slate-900 border border-slate-800 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
-                    <pre className="p-4 text-xs text-slate-300" style={{ margin: 0, whiteSpace: 'pre' }}>
+                    <pre className="p-5 text-xs text-slate-300" style={{ margin: 0, whiteSpace: 'pre' }}>
                       <code>{execution.stdout}</code>
                     </pre>
                   </div>
@@ -190,11 +191,11 @@ export function CodeViewer({
               )}
               {execution.error && (
                 <div style={{ width: '100%' }}>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
+                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-3 font-semibold">
                     Execution Error
                   </h4>
                   <div className="bg-red-950/20 border border-red-900/50 rounded-lg" style={{ overflowX: 'auto', width: '100%' }}>
-                    <pre className="p-4 text-xs text-red-300" style={{ margin: 0, whiteSpace: 'pre' }}>
+                    <pre className="p-5 text-xs text-red-300" style={{ margin: 0, whiteSpace: 'pre' }}>
                       <code>{execution.error}</code>
                     </pre>
                   </div>
@@ -205,14 +206,14 @@ export function CodeViewer({
 
           {/* Files Section */}
           {showFiles && (inputFiles.length > 0 || outputFiles.length > 0) && (
-            <div ref={filesRef} style={{ width: '100%' }} className="space-y-4">
+            <div ref={filesRef} style={{ width: '100%' }} className="space-y-6">
               {/* Input Files */}
               {inputFiles.length > 0 && (
                 <div>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
+                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-3 font-semibold">
                     Input Files ({inputFiles.length})
                   </h4>
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-2">
                     {inputFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-slate-800 rounded hover:bg-slate-750 transition-colors">
                         <div className="flex items-center gap-2 min-w-0">
@@ -227,15 +228,29 @@ export function CodeViewer({
                             <Eye className="w-3 h-3" />
                             Preview
                           </button>
-                          <a
-                            href={file.download_url}
-                            download={file.file_name}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const response = await fetch(file.download_url);
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.file_name;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                              } catch (error) {
+                                console.error('Download failed:', error);
+                              }
+                            }}
                             className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-slate-700 rounded transition-colors flex-shrink-0"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <Download className="w-3 h-3" />
                             Download
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -246,10 +261,10 @@ export function CodeViewer({
               {/* Output Files */}
               {outputFiles.length > 0 && (
                 <div>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-2 font-semibold">
+                  <h4 className="text-xs uppercase tracking-wide text-slate-400 mb-3 font-semibold">
                     Output Files ({outputFiles.length})
                   </h4>
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 space-y-2">
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-2">
                     {outputFiles.map((file, index) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-slate-800 rounded hover:bg-slate-750 transition-colors">
                         <div className="flex items-center gap-2 min-w-0">
@@ -264,15 +279,29 @@ export function CodeViewer({
                             <Eye className="w-3 h-3" />
                             Preview
                           </button>
-                          <a
-                            href={file.download_url}
-                            download={file.file_name}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const response = await fetch(file.download_url);
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = file.file_name;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                              } catch (error) {
+                                console.error('Download failed:', error);
+                              }
+                            }}
                             className="flex items-center gap-1 px-2 py-1 text-xs text-green-400 hover:text-green-300 hover:bg-slate-700 rounded transition-colors flex-shrink-0"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <Download className="w-3 h-3" />
                             Download
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -320,13 +349,30 @@ function FilePreviewModal({ file, onClose }: { file: OutputFileInfo; onClose: ()
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(file.download_url);
-        if (!response.ok) throw new Error('Failed to fetch file');
+
+        // Fetch from signed URL (no authentication needed)
+        // Backend returns Supabase signed URL with built-in authentication
+        const response = await fetch(file.download_url, {
+          method: 'GET'
+        });
+
+        if (!response.ok) {
+          const statusText = response.status === 403
+            ? 'Access denied.'
+            : response.status === 404
+            ? 'File not found.'
+            : response.status === 401
+            ? 'Authentication failed. Please login again.'
+            : `Server error (${response.status})`;
+          throw new Error(statusText);
+        }
+
         const text = await response.text();
         setContent(text);
-      } catch (err) {
-        setError('Failed to load file content');
-        console.error(err);
+      } catch (err: any) {
+        const errorMessage = err.message || 'Failed to load file content';
+        setError(errorMessage);
+        console.error('File preview error:', err);
       } finally {
         setLoading(false);
       }
@@ -381,8 +427,39 @@ function FilePreviewModal({ file, onClose }: { file: OutputFileInfo; onClose: ()
             </div>
           )}
           {error && (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-red-400">{error}</div>
+            <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
+              <div className="text-red-400 text-center font-medium">{error}</div>
+              <p className="text-sm text-slate-400 text-center">
+                Preview is not available for this file. You can still download it using the button below.
+              </p>
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const response = await fetch(file.download_url);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.file_name;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  } catch (error) {
+                    console.error('Download failed:', error);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors text-sm"
+              >
+                <Download className="w-4 h-4" />
+                Download {file.file_name}
+              </button>
+              <details className="text-xs text-slate-600 max-w-full">
+                <summary className="cursor-pointer text-slate-500 hover:text-slate-400">Technical details</summary>
+                <p className="mt-2 break-all">File: {file.file_name}</p>
+                <p className="mt-1 break-all">URL: {file.download_url.substring(0, 150)}...</p>
+              </details>
             </div>
           )}
           {!loading && !error && (
@@ -394,14 +471,28 @@ function FilePreviewModal({ file, onClose }: { file: OutputFileInfo; onClose: ()
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 p-4 border-t border-slate-700 flex-shrink-0">
-          <a
-            href={file.download_url}
-            download={file.file_name}
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch(file.download_url);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.file_name;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              } catch (error) {
+                console.error('Download failed:', error);
+              }
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors text-sm"
           >
             <Download className="w-4 h-4" />
             Download
-          </a>
+          </button>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors text-sm"

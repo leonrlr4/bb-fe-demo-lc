@@ -156,21 +156,27 @@ export function ChatPanel({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-        {messages.map((message, index) => (
+        {messages.map((message, index) => {
+          console.log('Message', index, 'selected:', selectedMessageIndex, 'match:', selectedMessageIndex === index);
+          return (
           <div
             key={index}
             className={`flex w-full min-w-0 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
               onClick={() => message.code && onMessageClick?.(index)}
-              className={[
-                'max-w-[85%] rounded-lg px-4 py-3 transition-all duration-200',
+              style={
+                selectedMessageIndex === index && message.role === 'assistant'
+                  ? { border: '3px solid #facc15' }
+                  : undefined
+              }
+              className={
                 message.role === 'user'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-800 text-slate-200',
-                message.code && 'cursor-pointer hover:bg-slate-700 hover:ring-2 hover:ring-purple-500 hover:shadow-lg hover:shadow-purple-500/20',
-                selectedMessageIndex === index && 'ring-2 ring-purple-500 shadow-lg shadow-purple-500/20',
-              ].join(' ')}
+                  ? 'max-w-[85%] rounded-lg px-4 py-3 transition-all duration-200 bg-purple-600 text-white'
+                  : message.code
+                    ? 'max-w-[85%] rounded-lg px-4 py-3 transition-all duration-200 bg-slate-800 text-slate-200 cursor-pointer hover:bg-slate-700'
+                    : 'max-w-[85%] rounded-lg px-4 py-3 transition-all duration-200 bg-slate-800 text-slate-200'
+              }
             >
               {message.role === 'assistant' && index === 0 && (
                 <div className="mb-2 text-purple-400">BioBuild</div>
@@ -199,7 +205,8 @@ export function ChatPanel({
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-slate-800 text-slate-200 rounded-lg px-4 py-3 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20">

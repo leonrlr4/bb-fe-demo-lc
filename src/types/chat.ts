@@ -40,6 +40,7 @@ export interface ExecutionInfo {
 
 export interface OutputFileInfo {
   file_name: string;
+  file_path: string;
   download_url: string;
 }
 
