@@ -2,6 +2,8 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  subscription_tier?: string;
+  created_at?: string;
 }
 
 export interface RegisterRequest {
@@ -17,6 +19,20 @@ export interface LoginRequest {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
-  user: User;
+  expires_in: number;
+  user_id: string;
+  username: string;
+  email: string;
+  subscription_tier: string;
+  created_at: string;
+  user?: User;
+}
+
+export interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
 }

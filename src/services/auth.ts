@@ -10,7 +10,17 @@ class AuthService {
       false
     );
     this.saveToken(response.access_token);
-    this.saveUser(response.user);
+    this.saveRefreshToken(response.refresh_token);
+    this.saveTokenExpiry(response.expires_in);
+
+    const user: User = {
+      id: response.user_id,
+      username: response.username,
+      email: response.email,
+      subscription_tier: response.subscription_tier,
+      created_at: response.created_at,
+    };
+    this.saveUser(user);
     return response;
   }
 
@@ -21,7 +31,17 @@ class AuthService {
       false
     );
     this.saveToken(response.access_token);
-    this.saveUser(response.user);
+    this.saveRefreshToken(response.refresh_token);
+    this.saveTokenExpiry(response.expires_in);
+
+    const user: User = {
+      id: response.user_id,
+      username: response.username,
+      email: response.email,
+      subscription_tier: response.subscription_tier,
+      created_at: response.created_at,
+    };
+    this.saveUser(user);
     return response;
   }
 
@@ -31,6 +51,30 @@ class AuthService {
 
   getToken(): string | null {
     return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  }
+
+  saveRefreshToken(token: string): void {
+    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  }
+
+  saveTokenExpiry(expiresIn: number): void {
+    const expiresAt = Date.now() + expiresIn * 1000;
+    localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRES_AT, expiresAt.toString());
+  }
+
+  getTokenExpiry(): number | null {
+    const expiry = localStorage.getItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
+    return expiry ? parseInt(expiry, 10) : null;
+  }
+
+  isTokenExpiringSoon(): boolean {
+    const expiresAt = this.getTokenExpiry();
+    if (!expiresAt) return true;
+    return Date.now() > expiresAt - 5 * 60 * 1000;
   }
 
   saveUser(user: User): void {
@@ -50,6 +94,8 @@ class AuthService {
 
   logout(): void {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRES_AT);
     localStorage.removeItem(STORAGE_KEYS.USER);
   }
 

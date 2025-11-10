@@ -311,6 +311,16 @@ function AppContent() {
     }
   }, [chatMessages, chatCodeResult]);
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAuthDialogOpen(true);
+      toast.error('Session expired. Please login again.');
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
+  }, []);
+
   return (
     <div style={{
       display: 'flex',

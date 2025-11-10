@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService } from '../services';
+import { authService, apiService } from '../services';
 import { User, AuthResponse } from '../types';
 import { getErrorMessage } from '../utils';
 
@@ -31,6 +31,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
     setIsLoading(false);
+
+    apiService.setOnUnauthorized(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    });
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'access_token' || e.key === 'user') {
+        const newToken = authService.getToken();
+        const newUser = authService.getUser();
+
+        if (!newToken) {
+          setUser(null);
+          setIsAuthenticated(false);
+        } else if (newUser) {
+          setUser(newUser);
+          setIsAuthenticated(true);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const login = async (email: string, password: string) => {
